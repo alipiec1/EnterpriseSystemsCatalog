@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, User } from "lucide-react";
+import { Plus, FileText, User, MessageCircle } from "lucide-react";
+import { Link } from "wouter";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,12 @@ export default function Layout({ children, onCreateSystem }: LayoutProps) {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <Link href="/chat">
+                <Button variant="outline" className="flex items-center space-x-2">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>AI Chat</span>
+                </Button>
+              </Link>
               <Button 
                 onClick={onCreateSystem}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
