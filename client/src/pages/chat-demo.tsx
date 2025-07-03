@@ -17,7 +17,7 @@ export default function ChatDemo() {
         },
         body: JSON.stringify({
           prompt: prompt,
-          model: "microsoft/DialoGPT-medium",
+          model: "gpt-3.5-turbo-0125",
           max_tokens: 300,
           temperature: 0.7
         })
@@ -145,8 +145,8 @@ The system is ready to provide intelligent responses about your enterprise syste
             <Sparkles className="w-8 h-8 text-yellow-500" />
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Demo chat interface ready for Hugging Face LLM integration. 
-            The backend API endpoint is configured and waiting for your API token to enable real AI responses.
+            AI-powered chat assistant with RAG (Retrieval-Augmented Generation) using your operational procedures document. 
+            Ask questions about system outages, ATO processes, stewardship, or general enterprise systems management.
           </p>
         </div>
 
@@ -154,12 +154,12 @@ The system is ready to provide intelligent responses about your enterprise syste
           <Card className="border-green-200 dark:border-green-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-                ✅ Ready for Integration
+                📚 RAG-Powered Knowledge
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                Backend API endpoint configured with Hugging Face integration. Just add your API token!
+                Retrieval-Augmented Generation using your operational procedures document for accurate, context-aware responses.
               </p>
             </CardContent>
           </Card>
@@ -167,12 +167,12 @@ The system is ready to provide intelligent responses about your enterprise syste
           <Card className="border-blue-200 dark:border-blue-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                🚀 Try Demo Responses
+                🎯 Ask About Procedures
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                Ask about "API integration", "systems", or general questions to see demo responses.
+                Try "What are the steps for planned system outage?" or "How do I get ATO approval?"
               </p>
             </CardContent>
           </Card>
@@ -180,12 +180,12 @@ The system is ready to provide intelligent responses about your enterprise syste
           <Card className="border-purple-200 dark:border-purple-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                🔧 LLM Models Available
+                🤖 GPT-3.5 Turbo + Embeddings
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                DialoGPT, BlenderBot, and other Hugging Face models ready to use.
+                OpenAI's GPT-3.5-turbo with intelligent document retrieval for enterprise guidance.
               </p>
             </CardContent>
           </Card>

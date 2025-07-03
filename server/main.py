@@ -7,14 +7,63 @@ import os
 import random
 import string
 from datetime import datetime
-import httpx
 import asyncio
-# LangChain imports - will be used when properly configured
-# from langchain_huggingface import HuggingFaceEndpoint
-# from langchain_core.prompts import PromptTemplate
-# from langchain_core.output_parsers import StrOutputParser
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# LangChain Components for RAG
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
 app = FastAPI(title="Enterprise Systems Catalog API", version="1.0.0")
+
+# --- RAG Pipeline Initialization ---
+print("Initializing RAG pipeline...")
+rag_chain = None
+try:
+    # Check if OpenAI API key is available
+    if os.getenv("OPENAI_API_KEY"):
+        loader = PyPDFLoader("Operational_Procedures_and_Guidelines.pdf")
+        docs = loader.load()
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splits = text_splitter.split_documents(docs)
+        vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings())
+        retriever = vectorstore.as_retriever()
+        
+        # Create RAG template that includes enterprise systems context
+        template = """You are an AI assistant for an Enterprise Systems Catalog. Use the following context from operational procedures and guidelines to answer questions about enterprise systems, stewardship, and operational procedures.
+
+Context: {context}
+
+Question: {question}
+
+Provide helpful, detailed responses based on the context. If the context doesn't contain relevant information, use your knowledge of enterprise systems and best practices to provide guidance. Use bullet points and structured formatting when appropriate."""
+        
+        prompt = ChatPromptTemplate.from_template(template)
+        llm = ChatOpenAI(model="gpt-3.5-turbo-0125")
+        
+        def format_docs(docs): 
+            return "\n\n".join(doc.page_content for doc in docs)
+        
+        rag_chain = (
+            {"context": retriever | format_docs, "question": RunnablePassthrough()} 
+            | prompt 
+            | llm 
+            | StrOutputParser()
+        )
+        print("RAG pipeline ready with OpenAI.")
+    else:
+        print("OpenAI API key not found. RAG functionality disabled.")
+except Exception as e:
+    print(f"Error initializing RAG pipeline: {e}")
+    rag_chain = None
 
 # CORS middleware for frontend integration
 app.add_middleware(
@@ -96,14 +145,14 @@ class ChatRequest(BaseModel):
     A Pydantic model for chat requests.
     """
     prompt: str
-    model: Optional[str] = "microsoft/DialoGPT-medium"
-    max_tokens: Optional[int] = 200
+    model: Optional[str] = "gpt-3.5-turbo-0125"
+    max_tokens: Optional[int] = 300
     temperature: Optional[float] = 0.7
 
 
 class ChatResponse(BaseModel):
     """
-    A Pydantic model for chat responses.
+    A Pydantic model for chat responses using RAG pipeline.
     """
     response: str
     model_used: str
@@ -136,117 +185,36 @@ def save_systems(systems: List[System]) -> None:
         raise HTTPException(status_code=500, detail="Failed to save systems")
 
 
-async def generate_llm_response(prompt: str, model: str = "meta-llama/Llama-3.1-8B-Instruct", max_tokens: int = 200, temperature: float = 0.7) -> str:
+async def generate_llm_response(prompt: str, model: str = "gpt-3.5-turbo-0125", max_tokens: int = 200, temperature: float = 0.7) -> str:
     """
-    Generate chat responses using Hugging Face Inference API with modern endpoints
+    Generate chat responses using RAG pipeline with OpenAI
     """
-    hf_token = os.getenv("HUGGINGFACE_API_TOKEN")
-    if not hf_token:
-        return "⚠️ Hugging Face API token not configured. Please add your token to enable AI responses. The backend is ready for integration once you provide your token."
+    global rag_chain
     
-    # Create enterprise systems context
-    system_context = """You are an AI assistant for an Enterprise Systems Catalog. You help users understand and manage their enterprise systems, stewardship roles, and API integration.
-
-Your expertise includes:
-- System lifecycle management and tracking
-- Business, security, and technical stewardship roles  
-- API documentation and integration guidance
-- Data validation and security best practices
-- Enterprise architecture and governance
-
-Provide helpful, detailed, and professional responses. Use bullet points and structured formatting when appropriate."""
-
-    # Use chat completion format for modern models
-    messages = [
-        {"role": "system", "content": system_context},
-        {"role": "user", "content": prompt}
-    ]
+    # Check if OpenAI API key is configured
+    if not os.getenv("OPENAI_API_KEY"):
+        return "⚠️ OpenAI API key not configured. Please add your API key to enable AI responses with RAG functionality."
     
-    # Use the correct Inference Providers API endpoint
-    api_url = "https://router.huggingface.co/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "meta-llama/Llama-3.1-8B-Instruct",
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "stream": False
-    }
+    # Check if RAG chain is initialized
+    if not rag_chain:
+        return "⚠️ RAG pipeline not initialized. Please check the PDF document and OpenAI API key configuration."
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            print(f"Making request to: {api_url}")
-            print(f"Headers: {headers}")
-            print(f"Payload: {payload}")
-            
-            response = await client.post(api_url, headers=headers, json=payload)
-            
-            print(f"Response status: {response.status_code}")
-            print(f"Response headers: {response.headers}")
-            
-            # Handle model loading
-            if response.status_code == 503:
-                print("Model is loading, waiting 3 seconds...")
-                await asyncio.sleep(3)
-                response = await client.post(api_url, headers=headers, json=payload)
-                print(f"Retry response status: {response.status_code}")
-            
-            if response.status_code != 200:
-                error_detail = f"Hugging Face API error: {response.status_code}"
-                try:
-                    error_data = response.json()
-                    print(f"Error response data: {error_data}")
-                    if "error" in error_data:
-                        error_detail = error_data["error"]
-                except Exception as parse_error:
-                    print(f"Could not parse error response: {parse_error}")
-                    print(f"Raw response text: {response.text}")
-                
-                # Try a fallback model for common errors
-                if model != "google/flan-t5-base" and response.status_code in [400, 404, 422]:
-                    print("Trying fallback model...")
-                    return await generate_llm_response(prompt, "google/flan-t5-base", max_tokens, temperature)
-                
-                raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_detail}")
-            
-            result = response.json()
-            print(f"Successful response: {result}")
-            
-            # Extract generated text from chat completion response
-            if "choices" in result and len(result["choices"]) > 0:
-                choice = result["choices"][0]
-                if "message" in choice and "content" in choice["message"]:
-                    generated_text = choice["message"]["content"].strip()
-                    if generated_text:
-                        return generated_text
-            
-            # Fallback for old-style responses
-            if isinstance(result, list) and len(result) > 0:
-                generated_text = result[0].get('generated_text', '').strip()
-                if generated_text:
-                    return generated_text
-            
+        # Use the RAG chain to generate a response
+        response = await asyncio.to_thread(rag_chain.invoke, prompt)
+        
+        if response and response.strip():
+            return response.strip()
+        else:
             return "I'm sorry, I couldn't generate a helpful response at this time. Please try rephrasing your question."
-                
-    except httpx.TimeoutException:
-        print("Request timed out")
-        raise HTTPException(status_code=504, detail="Request timeout - the model may be loading. Please try again in a moment.")
+            
     except Exception as e:
-        print(f"Error calling Hugging Face API: {e}")
-        print(f"Error type: {type(e)}")
+        print(f"Error with RAG pipeline: {e}")
         import traceback
         traceback.print_exc()
         
-        # Check if it's a token issue
-        if "404" in str(e) or "Invalid credentials" in str(e):
-            return "🔑 **Token Issue Detected**\n\nThe Hugging Face API token appears to be invalid or expired. Please:\n\n1. Go to https://huggingface.co/settings/tokens\n2. Create a new token with 'Inference Providers' permissions\n3. Update your HUGGINGFACE_API_TOKEN environment variable\n4. Restart the application\n\nThe backend is fully configured and ready to work once you provide a valid token."
-        
-        # Final fallback with error message
-        return f"I'm experiencing technical difficulties connecting to the AI service. Error: {str(e)[:100]}. Please check your Hugging Face API token configuration."
+        # Fallback to a basic enterprise systems response
+        return f"I'm experiencing technical difficulties with the RAG system. Error: {str(e)[:100]}. Please check your OpenAI API key configuration and ensure the PDF document is available."
 
 @app.post("/api/systems", response_model=System, status_code=status.HTTP_201_CREATED)
 async def create_system(system_create: SystemCreate):
@@ -364,7 +332,7 @@ async def delete_system(system_id: str):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_with_llm(chat_request: ChatRequest):
     """
-    Endpoint for generating LLM responses using LangChain and Hugging Face
+    Endpoint for generating RAG-powered responses using OpenAI and document retrieval
     
     Args:
         chat_request: ChatRequest containing the user prompt and optional parameters
@@ -373,8 +341,8 @@ async def chat_with_llm(chat_request: ChatRequest):
         ChatResponse with the generated response and model information
     """
     try:
-        model = chat_request.model or "microsoft/DialoGPT-medium"
-        max_tokens = chat_request.max_tokens or 200
+        model = chat_request.model or "gpt-3.5-turbo-0125"
+        max_tokens = chat_request.max_tokens or 300
         temperature = chat_request.temperature or 0.7
         
         response = await generate_llm_response(
@@ -386,7 +354,7 @@ async def chat_with_llm(chat_request: ChatRequest):
         
         return ChatResponse(
             response=response,
-            model_used=model
+            model_used="gpt-3.5-turbo-0125 (RAG-powered)"
         )
         
     except HTTPException:
