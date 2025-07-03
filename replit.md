@@ -8,11 +8,12 @@ This is a full-stack web application for cataloging enterprise systems with deta
 
 ### Frontend Architecture
 - **Framework**: React 18 with TypeScript
-- **Styling**: Tailwind CSS with shadcn/ui component library
+- **Styling**: Tailwind CSS with custom components
 - **State Management**: React Query (@tanstack/react-query) for server state management
 - **Routing**: Wouter for client-side routing
-- **Forms**: React Hook Form with Zod validation
+- **Forms**: React Hook Form with validation
 - **Build Tool**: Vite for development and build processes
+- **Location**: `/client` directory with independent package.json
 
 ### Backend Architecture
 - **Runtime**: Python with FastAPI
@@ -21,6 +22,7 @@ This is a full-stack web application for cataloging enterprise systems with deta
 - **Schema Validation**: Pydantic for runtime type checking and validation
 - **API Documentation**: Automatic OpenAPI/Swagger documentation
 - **CORS**: Configured for frontend integration
+- **Location**: `/server/main.py` as single backend file
 
 ### Data Storage
 - **Primary Database**: JSON file storage (db_data.json)
@@ -106,6 +108,12 @@ The system uses a single primary entity - System:
 
 ## Changelog
 
+- July 03, 2025: Cleaned up codebase and finalized architecture
+  - Removed unused Express.js files and dependencies
+  - Simplified project structure with clear separation of frontend/backend
+  - Created comprehensive documentation (README.md, backend_requirements.txt)
+  - Established dual-server development setup with proper workflow configuration
+  - Updated Vite configuration to allow all hosts for Replit compatibility
 - July 03, 2025: Successfully migrated from Express.js to FastAPI backend
   - Replaced Express.js server with FastAPI for better API documentation and Python ecosystem
   - Implemented JSON file storage for simple deployment and data persistence

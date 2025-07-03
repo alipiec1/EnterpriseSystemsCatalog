@@ -1,27 +1,67 @@
-// This file has been replaced with a FastAPI-only solution
-// The FastAPI server is now the primary backend
-// Run the FastAPI server directly using: .pythonlibs/bin/python3 run_dev_server.py
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-import { spawn } from "child_process";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-console.log("🚀 Starting FastAPI Development Server...");
+console.log('🚀 Starting Enterprise Systems Catalog Development Environment...');
+console.log('🌐 Frontend will be available at http://localhost:5000');
+console.log('📚 API documentation at http://localhost:8000/docs');
 
-// Start the FastAPI server
-const fastApiProcess = spawn('.pythonlibs/bin/python3', ['run_dev_server.py'], {
-  cwd: process.cwd(),
-  stdio: 'inherit'
+// Start the Python FastAPI server
+console.log('🔧 Starting FastAPI backend server...');
+const pythonProcess = spawn('python', ['server/main.py'], {
+  stdio: 'pipe',
+  cwd: join(__dirname, '..')
 });
 
-fastApiProcess.on('error', (error) => {
-  console.error(`FastAPI server error: ${error.message}`);
+pythonProcess.stdout?.on('data', (data) => {
+  console.log(`[FastAPI] ${data.toString().trim()}`);
 });
 
-process.on('SIGTERM', () => {
-  fastApiProcess.kill();
+pythonProcess.stderr?.on('data', (data) => {
+  console.error(`[FastAPI] ${data.toString().trim()}`);
+});
+
+// Start the Vite frontend server
+console.log('🔧 Starting Vite frontend server...');
+const viteProcess = spawn('npm', ['run', 'dev'], {
+  stdio: 'pipe',
+  cwd: join(__dirname, '..', 'client')
+});
+
+viteProcess.stdout?.on('data', (data) => {
+  console.log(`[Vite] ${data.toString().trim()}`);
+});
+
+viteProcess.stderr?.on('data', (data) => {
+  console.error(`[Vite] ${data.toString().trim()}`);
+});
+
+// Handle process termination
+const cleanup = () => {
+  console.log('\n🔄 Shutting down servers...');
+  pythonProcess.kill();
+  viteProcess.kill();
   process.exit(0);
+};
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+
+pythonProcess.on('error', (error) => {
+  console.error('FastAPI server error:', error);
 });
 
-process.on('SIGINT', () => {
-  fastApiProcess.kill();
-  process.exit(0);
+viteProcess.on('error', (error) => {
+  console.error('Vite server error:', error);
+});
+
+pythonProcess.on('close', (code) => {
+  console.log(`FastAPI server exited with code ${code}`);
+});
+
+viteProcess.on('close', (code) => {
+  console.log(`Vite server exited with code ${code}`);
 });
