@@ -43,6 +43,23 @@ When the backend is running, visit `http://localhost:8000/docs` for interactive 
 - Responsive web interface
 - JSON file persistence
 
+## Testing
+
+The backend includes comprehensive test coverage using pytest:
+
+```bash
+# Install testing dependencies
+pip install -r backend_requirements.txt
+
+# Run tests
+python -m pytest test_api.py -v
+
+# Run all tests including advanced mocking tests
+python -m pytest -v
+```
+
+See `TESTING.md` for detailed testing documentation.
+
 ## File Structure
 
 ```
@@ -54,7 +71,10 @@ When the backend is running, visit `http://localhost:8000/docs` for interactive 
 │   └── package.json
 ├── server/
 │   └── main.py            # FastAPI backend
+├── test_api.py            # Main test suite
+├── test_backend.py        # Advanced test suite with mocking
 ├── backend_requirements.txt
 ├── db_data.json           # Data storage
+├── TESTING.md             # Testing documentation
 └── README.md
 ```
