@@ -15,18 +15,18 @@ This is a full-stack web application for cataloging enterprise systems with deta
 - **Build Tool**: Vite for development and build processes
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript with ES modules
-- **Database**: PostgreSQL with Neon serverless driver
-- **ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema Validation**: Zod for runtime type checking
-- **Session Management**: Express sessions with PostgreSQL store
+- **Runtime**: Python with FastAPI
+- **Language**: Python 3.11 with Pydantic models
+- **Database**: JSON file storage (db_data.json)
+- **Schema Validation**: Pydantic for runtime type checking and validation
+- **API Documentation**: Automatic OpenAPI/Swagger documentation
+- **CORS**: Configured for frontend integration
 
 ### Data Storage
-- **Primary Database**: PostgreSQL (configured for Neon serverless)
-- **ORM**: Drizzle ORM for type-safe database operations
-- **Migrations**: Drizzle Kit for database schema management
-- **Fallback Storage**: JSON file storage implementation (JsonFileStorage class)
+- **Primary Database**: JSON file storage (db_data.json)
+- **Storage Implementation**: File-based JSON storage with automatic file management
+- **Data Validation**: Pydantic models ensure data integrity
+- **Backup Strategy**: Simple file-based persistence for easy deployment
 
 ## Key Components
 
@@ -106,7 +106,13 @@ The system uses a single primary entity - System:
 
 ## Changelog
 
-- July 03, 2025. Initial setup
+- July 03, 2025: Successfully migrated from Express.js to FastAPI backend
+  - Replaced Express.js server with FastAPI for better API documentation and Python ecosystem
+  - Implemented JSON file storage for simple deployment and data persistence
+  - Created comprehensive system CRUD operations with proper validation
+  - Configured CORS and hot reload for development
+  - All API endpoints tested and working: GET, POST, PUT, DELETE operations
+- July 03, 2025: Initial setup
 
 ## User Preferences
 

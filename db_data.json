@@ -1,3 +1,18 @@
 {
-  "systems": []
+  "systems": [
+    {
+      "system_id": "QF23GI2S",
+      "system_name": "Test System",
+      "system_description": "A test system for validation",
+      "business_steward_email": "john@example.com",
+      "business_steward_full_name": "John Doe",
+      "security_steward_email": "jane@example.com",
+      "security_steward_full_name": "Jane Smith",
+      "technical_steward_email": "bob@example.com",
+      "technical_steward_full_name": "Bob Wilson",
+      "status": "active",
+      "created_at": "2025-07-03T15:27:12.174551",
+      "updated_at": "2025-07-03T15:27:12.174558"
+    }
+  ]
 }
