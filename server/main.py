@@ -136,13 +136,13 @@ def save_systems(systems: List[System]) -> None:
         raise HTTPException(status_code=500, detail="Failed to save systems")
 
 
-async def generate_llm_response(prompt: str, model: str = "microsoft/DialoGPT-medium", max_tokens: int = 200, temperature: float = 0.7) -> str:
+async def generate_llm_response(prompt: str, model: str = "meta-llama/Llama-3.1-8B-Instruct", max_tokens: int = 200, temperature: float = 0.7) -> str:
     """
-    Generate chat responses using Hugging Face Inference API directly
+    Generate chat responses using Hugging Face Inference API with modern endpoints
     """
     hf_token = os.getenv("HUGGINGFACE_API_TOKEN")
     if not hf_token:
-        raise HTTPException(status_code=500, detail="Hugging Face API token not configured")
+        return "⚠️ Hugging Face API token not configured. Please add your token to enable AI responses. The backend is ready for integration once you provide your token."
     
     # Create enterprise systems context
     system_context = """You are an AI assistant for an Enterprise Systems Catalog. You help users understand and manage their enterprise systems, stewardship roles, and API integration.
@@ -156,52 +156,75 @@ Your expertise includes:
 
 Provide helpful, detailed, and professional responses. Use bullet points and structured formatting when appropriate."""
 
-    # Format the full prompt with context
-    full_prompt = f"{system_context}\n\nUser Question: {prompt}\n\nAssistant Response:"
+    # Use chat completion format for modern models
+    messages = [
+        {"role": "system", "content": system_context},
+        {"role": "user", "content": prompt}
+    ]
     
-    # Use a better model for text generation
-    api_url = f"https://api-inference.huggingface.co/models/{model}"
-    headers = {"Authorization": f"Bearer {hf_token}"}
+    # Use the correct Inference Providers API endpoint
+    api_url = "https://router.huggingface.co/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json"
+    }
     
     payload = {
-        "inputs": full_prompt,
-        "parameters": {
-            "max_new_tokens": max_tokens,
-            "temperature": temperature,
-            "return_full_text": False,
-            "do_sample": True,
-            "repetition_penalty": 1.1,
-            "top_p": 0.9
-        }
+        "model": "meta-llama/Llama-3.1-8B-Instruct",
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": False
     }
     
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
+            print(f"Making request to: {api_url}")
+            print(f"Headers: {headers}")
+            print(f"Payload: {payload}")
+            
             response = await client.post(api_url, headers=headers, json=payload)
+            
+            print(f"Response status: {response.status_code}")
+            print(f"Response headers: {response.headers}")
             
             # Handle model loading
             if response.status_code == 503:
+                print("Model is loading, waiting 3 seconds...")
                 await asyncio.sleep(3)
                 response = await client.post(api_url, headers=headers, json=payload)
+                print(f"Retry response status: {response.status_code}")
             
             if response.status_code != 200:
                 error_detail = f"Hugging Face API error: {response.status_code}"
                 try:
                     error_data = response.json()
+                    print(f"Error response data: {error_data}")
                     if "error" in error_data:
                         error_detail = error_data["error"]
-                except:
-                    pass
+                except Exception as parse_error:
+                    print(f"Could not parse error response: {parse_error}")
+                    print(f"Raw response text: {response.text}")
                 
-                # Try a fallback model
-                if model != "microsoft/DialoGPT-small":
-                    return await generate_llm_response(prompt, "microsoft/DialoGPT-small", max_tokens, temperature)
+                # Try a fallback model for common errors
+                if model != "google/flan-t5-base" and response.status_code in [400, 404, 422]:
+                    print("Trying fallback model...")
+                    return await generate_llm_response(prompt, "google/flan-t5-base", max_tokens, temperature)
                 
                 raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_detail}")
             
             result = response.json()
+            print(f"Successful response: {result}")
             
-            # Extract generated text
+            # Extract generated text from chat completion response
+            if "choices" in result and len(result["choices"]) > 0:
+                choice = result["choices"][0]
+                if "message" in choice and "content" in choice["message"]:
+                    generated_text = choice["message"]["content"].strip()
+                    if generated_text:
+                        return generated_text
+            
+            # Fallback for old-style responses
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get('generated_text', '').strip()
                 if generated_text:
@@ -210,9 +233,18 @@ Provide helpful, detailed, and professional responses. Use bullet points and str
             return "I'm sorry, I couldn't generate a helpful response at this time. Please try rephrasing your question."
                 
     except httpx.TimeoutException:
+        print("Request timed out")
         raise HTTPException(status_code=504, detail="Request timeout - the model may be loading. Please try again in a moment.")
     except Exception as e:
         print(f"Error calling Hugging Face API: {e}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Check if it's a token issue
+        if "404" in str(e) or "Invalid credentials" in str(e):
+            return "🔑 **Token Issue Detected**\n\nThe Hugging Face API token appears to be invalid or expired. Please:\n\n1. Go to https://huggingface.co/settings/tokens\n2. Create a new token with 'Inference Providers' permissions\n3. Update your HUGGINGFACE_API_TOKEN environment variable\n4. Restart the application\n\nThe backend is fully configured and ready to work once you provide a valid token."
+        
         # Final fallback with error message
         return f"I'm experiencing technical difficulties connecting to the AI service. Error: {str(e)[:100]}. Please check your Hugging Face API token configuration."
 
