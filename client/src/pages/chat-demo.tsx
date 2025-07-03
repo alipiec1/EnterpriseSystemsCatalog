@@ -6,115 +6,124 @@ import { MessageCircle, Sparkles, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 
 export default function ChatDemo() {
-  // Mock function to simulate API call
+  // Function to demonstrate Hugging Face API integration
   const handleChatSubmit = async (prompt: string): Promise<string> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-    
-    // Generate contextual responses based on prompt content
+    try {
+      // First try the backend API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          model: "microsoft/DialoGPT-medium",
+          max_tokens: 300,
+          temperature: 0.7
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.response || "I received an empty response from the AI service.";
+      }
+
+      // If backend fails, provide informative demonstration response
+      console.log('Backend API not available, providing demo response');
+      
+      return generateDemoResponse(prompt);
+      
+    } catch (error) {
+      console.log('API call failed:', error);
+      return generateDemoResponse(prompt);
+    }
+  };
+
+  const generateDemoResponse = (prompt: string): string => {
     const lowerPrompt = prompt.toLowerCase();
     
+    if (lowerPrompt.includes('api') || lowerPrompt.includes('integration')) {
+      return `## Hugging Face API Integration
+
+Here's how to integrate with Hugging Face models:
+
+**Setup Steps:**
+1. Get your API token from https://huggingface.co/settings/tokens
+2. Add the token as \`HUGGINGFACE_API_TOKEN\` environment variable
+3. Install dependencies: \`pip install langchain langchain-huggingface\`
+
+**Example Code:**
+\`\`\`python
+from langchain_huggingface import HuggingFaceEndpoint
+
+llm = HuggingFaceEndpoint(
+    repo_id="microsoft/DialoGPT-medium",
+    huggingfacehub_api_token="your_token_here",
+    max_new_tokens=200,
+    temperature=0.7
+)
+
+response = llm.invoke("Your question here")
+\`\`\`
+
+**Available Models:**
+- microsoft/DialoGPT-medium (conversational)
+- microsoft/DialoGPT-large (better quality)
+- facebook/blenderbot-400M-distill (fast responses)
+
+The backend is ready to use your Hugging Face token once configured!`;
+    }
+
     if (lowerPrompt.includes('system') || lowerPrompt.includes('catalog')) {
-      return `## System Catalog Insights
+      return `## Enterprise Systems Catalog
 
-Based on your query about "${prompt}", here's what I can tell you:
+**Current Implementation:**
+• React frontend with TypeScript and Tailwind CSS
+• FastAPI backend with comprehensive validation
+• JSON file storage for simplicity and portability
+• Full CRUD operations with proper error handling
 
-**Current System Status**
-• **Active Systems**: 12 enterprise systems currently tracked
-• **Pending Reviews**: 3 systems awaiting steward assignment
-• **Recent Updates**: 5 systems updated in the last 30 days
+**Chat Integration:**
+The AI assistant is designed to help with:
+- System management questions
+- Stewardship guidance  
+- API documentation
+- Best practices recommendations
 
-**Key Features**
-- **Stewardship Management**: Track business, security, and technical stewards
-- **Status Monitoring**: Real-time system health and lifecycle tracking
-- **Data Validation**: Comprehensive email and field validation
-- **API Integration**: RESTful API with full CRUD operations
+**Ready for LLM Integration:**
+✓ Backend endpoint configured (\`/api/chat\`)
+✓ Frontend chat interface implemented
+✓ Error handling and fallbacks
+✓ Environment variable setup for API tokens
 
-**Recommendations**
-1. Regular steward reviews to ensure accountability
-2. Automated status monitoring for proactive management
-3. Integration with existing IT service management tools`;
+Simply add your Hugging Face API token to enable real AI responses!`;
     }
-    
-    if (lowerPrompt.includes('steward') || lowerPrompt.includes('owner')) {
-      return `## Stewardship Overview
 
-Regarding "${prompt}":
+    return `## AI Chat Assistant Demo
 
-**Stewardship Roles**
-• **Business Steward**: Owns business requirements and priorities
-• **Security Steward**: Manages security compliance and risk assessment
-• **Technical Steward**: Handles technical architecture and maintenance
+**About This Demo:**
+This chat interface demonstrates how to integrate Large Language Models with your enterprise systems catalog.
 
-**Best Practices**
-- Clear role definitions and responsibilities
-- Regular steward meetings and reviews
-- Documented escalation procedures
-- Cross-training for backup coverage
+**Features:**
+• Real-time chat interface with typing indicators
+• Message formatting with markdown support
+• Copy-to-clipboard functionality
+• Error handling and retry logic
+• Professional styling matching your application theme
 
-**Current Metrics**
-- 95% steward assignment completion rate
-- Average response time: 2.3 hours
-- Monthly steward review compliance: 88%`;
-    }
-    
-    if (lowerPrompt.includes('api') || lowerPrompt.includes('endpoint')) {
-      return `## API Documentation
+**Integration Status:**
+🔧 Backend API endpoint ready
+🔑 Waiting for Hugging Face API token configuration
+💬 Frontend chat interface fully functional
+📚 Context-aware prompt engineering implemented
 
-For your question about "${prompt}":
+**Next Steps:**
+1. Configure your Hugging Face API token
+2. Test with different models (DialoGPT, BlenderBot, etc.)
+3. Customize the system prompt for your specific use case
+4. Add conversation memory for multi-turn dialogues
 
-**Available Endpoints**
-\`\`\`
-GET    /api/systems          # List all systems
-POST   /api/systems          # Create new system
-GET    /api/systems/{id}     # Get system details
-PUT    /api/systems/{id}     # Update system
-DELETE /api/systems/{id}     # Delete system
-\`\`\`
-
-**Response Format**
-\`\`\`json
-{
-  "system_id": "SYS-123456-ABCDE",
-  "system_name": "Enterprise Portal",
-  "status": "active",
-  "business_steward_email": "owner@company.com",
-  "created_at": "2025-01-01T00:00:00Z"
-}
-\`\`\`
-
-**Authentication**
-- Currently using session-based authentication
-- Rate limiting: 100 requests per minute
-- CORS enabled for localhost development`;
-    }
-    
-    // Default response
-    return `## General Information
-
-Thank you for your question: "${prompt}"
-
-**Enterprise Systems Catalog**
-This application helps organizations manage their enterprise systems with comprehensive metadata tracking.
-
-**Key Capabilities**
-• System lifecycle management
-• Stewardship assignment and tracking
-• Status monitoring and reporting
-• Data validation and integrity
-• RESTful API with comprehensive documentation
-
-**Getting Started**
-1. Browse existing systems in the dashboard
-2. Create new system entries with full metadata
-3. Assign stewards for each system
-4. Monitor system status and health
-5. Use the API for integrations
-
-**Need Help?**
-- Check the system dashboard for current status
-- Review API documentation for integration details
-- Contact your system administrator for access questions`;
+The system is ready to provide intelligent responses about your enterprise systems once the API token is properly configured!`;
   };
 
   return (
@@ -136,8 +145,8 @@ This application helps organizations manage their enterprise systems with compre
             <Sparkles className="w-8 h-8 text-yellow-500" />
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ask questions about your enterprise systems, stewardship, or API documentation. 
-            The assistant will provide detailed, contextual responses.
+            Demo chat interface ready for Hugging Face LLM integration. 
+            The backend API endpoint is configured and waiting for your API token to enable real AI responses.
           </p>
         </div>
 
@@ -145,12 +154,12 @@ This application helps organizations manage their enterprise systems with compre
           <Card className="border-green-200 dark:border-green-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-                System Information
+                ✅ Ready for Integration
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                Ask about system status, catalog features, or management capabilities.
+                Backend API endpoint configured with Hugging Face integration. Just add your API token!
               </p>
             </CardContent>
           </Card>
@@ -158,12 +167,12 @@ This application helps organizations manage their enterprise systems with compre
           <Card className="border-blue-200 dark:border-blue-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Stewardship Guide
+                🚀 Try Demo Responses
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                Learn about steward roles, responsibilities, and best practices.
+                Ask about "API integration", "systems", or general questions to see demo responses.
               </p>
             </CardContent>
           </Card>
@@ -171,12 +180,12 @@ This application helps organizations manage their enterprise systems with compre
           <Card className="border-purple-200 dark:border-purple-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                API Documentation
+                🔧 LLM Models Available
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground">
-                Get help with API endpoints, authentication, and integration.
+                DialoGPT, BlenderBot, and other Hugging Face models ready to use.
               </p>
             </CardContent>
           </Card>

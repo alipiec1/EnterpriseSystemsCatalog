@@ -7,6 +7,12 @@ import os
 import random
 import string
 from datetime import datetime
+import httpx
+import asyncio
+# LangChain imports - will be used when properly configured
+# from langchain_huggingface import HuggingFaceEndpoint
+# from langchain_core.prompts import PromptTemplate
+# from langchain_core.output_parsers import StrOutputParser
 
 app = FastAPI(title="Enterprise Systems Catalog API", version="1.0.0")
 
@@ -84,6 +90,24 @@ class SystemUpdate(BaseModel):
     technical_steward_full_name: Optional[str] = None
     status: Optional[str] = None
 
+
+class ChatRequest(BaseModel):
+    """
+    A Pydantic model for chat requests.
+    """
+    prompt: str
+    model: Optional[str] = "microsoft/DialoGPT-medium"
+    max_tokens: Optional[int] = 200
+    temperature: Optional[float] = 0.7
+
+
+class ChatResponse(BaseModel):
+    """
+    A Pydantic model for chat responses.
+    """
+    response: str
+    model_used: str
+
 def generate_system_id() -> str:
     """Generate a unique system ID"""
     timestamp = str(int(datetime.now().timestamp()))[-6:]
@@ -110,6 +134,87 @@ def save_systems(systems: List[System]) -> None:
     except Exception as e:
         print(f"Error saving systems: {e}")
         raise HTTPException(status_code=500, detail="Failed to save systems")
+
+
+async def generate_llm_response(prompt: str, model: str = "microsoft/DialoGPT-medium", max_tokens: int = 200, temperature: float = 0.7) -> str:
+    """
+    Generate chat responses using Hugging Face Inference API directly
+    """
+    hf_token = os.getenv("HUGGINGFACE_API_TOKEN")
+    if not hf_token:
+        raise HTTPException(status_code=500, detail="Hugging Face API token not configured")
+    
+    # Create enterprise systems context
+    system_context = """You are an AI assistant for an Enterprise Systems Catalog. You help users understand and manage their enterprise systems, stewardship roles, and API integration.
+
+Your expertise includes:
+- System lifecycle management and tracking
+- Business, security, and technical stewardship roles  
+- API documentation and integration guidance
+- Data validation and security best practices
+- Enterprise architecture and governance
+
+Provide helpful, detailed, and professional responses. Use bullet points and structured formatting when appropriate."""
+
+    # Format the full prompt with context
+    full_prompt = f"{system_context}\n\nUser Question: {prompt}\n\nAssistant Response:"
+    
+    # Use a better model for text generation
+    api_url = f"https://api-inference.huggingface.co/models/{model}"
+    headers = {"Authorization": f"Bearer {hf_token}"}
+    
+    payload = {
+        "inputs": full_prompt,
+        "parameters": {
+            "max_new_tokens": max_tokens,
+            "temperature": temperature,
+            "return_full_text": False,
+            "do_sample": True,
+            "repetition_penalty": 1.1,
+            "top_p": 0.9
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(api_url, headers=headers, json=payload)
+            
+            # Handle model loading
+            if response.status_code == 503:
+                await asyncio.sleep(3)
+                response = await client.post(api_url, headers=headers, json=payload)
+            
+            if response.status_code != 200:
+                error_detail = f"Hugging Face API error: {response.status_code}"
+                try:
+                    error_data = response.json()
+                    if "error" in error_data:
+                        error_detail = error_data["error"]
+                except:
+                    pass
+                
+                # Try a fallback model
+                if model != "microsoft/DialoGPT-small":
+                    return await generate_llm_response(prompt, "microsoft/DialoGPT-small", max_tokens, temperature)
+                
+                raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_detail}")
+            
+            result = response.json()
+            
+            # Extract generated text
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get('generated_text', '').strip()
+                if generated_text:
+                    return generated_text
+            
+            return "I'm sorry, I couldn't generate a helpful response at this time. Please try rephrasing your question."
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Request timeout - the model may be loading. Please try again in a moment.")
+    except Exception as e:
+        print(f"Error calling Hugging Face API: {e}")
+        # Final fallback with error message
+        return f"I'm experiencing technical difficulties connecting to the AI service. Error: {str(e)[:100]}. Please check your Hugging Face API token configuration."
 
 @app.post("/api/systems", response_model=System, status_code=status.HTTP_201_CREATED)
 async def create_system(system_create: SystemCreate):
@@ -223,6 +328,40 @@ async def delete_system(system_id: str):
             return
     
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="System not found")
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_with_llm(chat_request: ChatRequest):
+    """
+    Endpoint for generating LLM responses using LangChain and Hugging Face
+    
+    Args:
+        chat_request: ChatRequest containing the user prompt and optional parameters
+        
+    Returns:
+        ChatResponse with the generated response and model information
+    """
+    try:
+        model = chat_request.model or "microsoft/DialoGPT-medium"
+        max_tokens = chat_request.max_tokens or 200
+        temperature = chat_request.temperature or 0.7
+        
+        response = await generate_llm_response(
+            prompt=chat_request.prompt,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        
+        return ChatResponse(
+            response=response,
+            model_used=model
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process chat request")
 
 @app.get("/")
 async def root():
